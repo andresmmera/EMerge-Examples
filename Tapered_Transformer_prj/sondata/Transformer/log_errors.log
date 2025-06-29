@@ -1,0 +1,20 @@
+Run 1:  Sun Jun 29 10:08:29 2025.  SL685a1842.
+        Em version 18.53-Lite (64-bit Windows) on andres-k55vd local.
+
+  Project:  Z:\home\andresmmera\.qucs\Matching_prj\Transformer.son.
+
+    Begin electromagnetic simulation using independent parameters:
+      L1 = 44.38 mm
+      L2 = 43.33 mm
+      L3 = 42.4395 mm
+      W1 = 1.57 mm
+      W2 = 2.7 mm
+      W3 = 4.4 mm
+
+    Begin electromagnetic simulation using frequency sweep:
+      ABS Start = 0.1, Stop = 5 GHZ
+
+    Post-Analysis information for em run 1:
+      Em errors detected: 0    Em warnings detected: 0.
+
+Em simulation completed Sun Jun 29 10:10:49 2025.
