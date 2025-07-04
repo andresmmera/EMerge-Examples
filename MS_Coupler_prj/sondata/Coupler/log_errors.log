@@ -1,0 +1,21 @@
+Run 1:  Thu Jun 26 05:57:34 2025.  SL685a1842.
+        Em version 18.53-Lite (64-bit Windows) on andres-k55vd local.
+
+  Project:  Z:\home\andresmmera\.qucs\MS_Coupler_prj\Coupler.son.
+
+    Begin electromagnetic simulation using independent parameters:
+      Lfeed = 10 mm
+      W0 = 1.08 mm
+      Ltrans = 1.27 mm
+      Lcoupled = 22.75 mm
+      Wcoupled = 1 mm
+      W0_1 = 1.08001 mm
+      W0_2 = 1.08 mm
+
+    Begin electromagnetic simulation using frequency sweep:
+      ABS Start = 0.1, Stop = 5 GHZ
+
+    Post-Analysis information for em run 1:
+      Em errors detected: 0    Em warnings detected: 0.
+
+Em simulation completed Thu Jun 26 05:57:47 2025.
