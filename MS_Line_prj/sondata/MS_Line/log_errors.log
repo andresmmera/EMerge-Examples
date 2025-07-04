@@ -1,0 +1,16 @@
+Run 1:  Thu Jul 03 19:22:50 2025.  SL685a1842.
+        Em version 18.53-Lite (64-bit Windows) on andres-k55vd local.
+
+  Project:  Z:\home\andresmmera\.qucs\MS_Line_prj\MS_Line.son.
+
+    Begin electromagnetic simulation using independent parameters:
+      L1 = 20 mm
+      W1 = 1.1 mm
+
+    Begin electromagnetic simulation using frequency sweep:
+      ABS Start = 0.1, Stop = 5 GHZ
+
+    Post-Analysis information for em run 1:
+      Em errors detected: 0    Em warnings detected: 0.
+
+Em simulation completed Thu Jul 03 19:22:53 2025.
