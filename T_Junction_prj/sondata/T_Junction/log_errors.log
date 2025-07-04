@@ -1,0 +1,44 @@
+Run 1:  Wed Jul 02 05:53:18 2025.  SL685a1842.
+        Em version 18.53-Lite (64-bit Windows) on andres-k55vd local.
+
+  Project:  Z:\home\andresmmera\.qucs\T_Junction_prj\T_Junction.son.
+
+    Begin electromagnetic simulation using independent parameters:
+      W_50 = 1.13 mm
+      L0 = 45 mm
+      W_100 = 0.272 mm
+      L1 = 47.3 mm
+
+    Begin electromagnetic simulation using frequency sweep:
+      ABS Start = 0.1, Stop = 5 GHZ
+
+    Frequency:  0.1 GHZ
+
+      Sonnet Warning:
+      Adaptive band synthesis.
+      Primary structure has potential box resonances.
+      ABS may require large number of discrete frequencies for convergence.
+
+
+    Frequency:  2.7 GHZ
+
+      Sonnet Warning:
+      Potential de-embedding problem.
+      Unable to determine Z0 and Eeff for
+      left box wall standard at 2.7 GHz.
+      De-embedded s-parameters may not be valid.
+
+
+    Frequency:  4.68 GHZ
+
+      Sonnet Warning:
+      Potential de-embedding problem.
+      Unable to determine Z0 and Eeff for
+      left box wall standard at 4.68 GHz.
+      De-embedded s-parameters may not be valid.
+
+
+    Post-Analysis information for em run 1:
+      Em errors detected: 0    Em warnings detected: 3.
+
+Em simulation completed Wed Jul 02 05:54:13 2025.
