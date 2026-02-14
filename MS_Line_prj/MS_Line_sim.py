@@ -1,5 +1,4 @@
 import emerge as em
-from emerge.pyvista import PVDisplay
 import numpy as np
 import time
 from datetime import datetime
@@ -7,128 +6,110 @@ from datetime import datetime
 # Constants
 cm = 0.01
 mm = 0.001
-mil = 0.0254
+mil = 0.0254 * mm
 um = 0.000001
 PI = np.pi
+MHz = 1e6
+GHz = 1e9
 
-L0 = 20 # mm
-W0 = 1.1 # mm
+# Microstrip line dimmensions
+L0 = 20   # mm
+W0 = 1.1  # mm
 
-
-th = 0.508 # mm = 20 mils The PCB Thickness
-er = 3.55 # The Dielectric constant
+# Substrate properties
+th   = 0.508   # mm = 20 mils, PCB thickness
+er   = 3.55    # dielectric constant
 tand = 0.0029
 
-Hair = 10*th
+# Air box
+Hair = 10 * th  # mm, air box height
+PCB_width = 40
 
-# We can define the material using the Material class. Just supply the dielectric properties and you are done!
-pcbmat = em.Material(er=er, tand=tand)
+# Frequency sweep
+fstart = 100 * MHz
+fstop = 5 * GHz
+n_points = 40
 
 project_name = "MS_Line"
 
-with em.Simulation3D(project_name, save_file=True) as m:
-  
-    
-    # To accomodate PCB routing we make use of the PCBLayouter class. To use it we need to 
-    # supply it with a thickness, the desired air-box height, the units at which we supply
-    # the dimensions and the PCB material.
+# --- Create simulation object -------------------------------------------
+model = em.Simulation(project_name)
+model.check_version("2.3.0")
 
-    layouter = em.geo.PCBLayouter(th, unit=mm, material=pcbmat)
+# --- Material and PCB layouter ------------------------------------------
+pcbmat = em.Material(er=er, tand=tand)
 
-    # We will route our PCB using the "method chaining" syntax. First we call the .new() method
-    # to start a new trace. This will returna StripPath object on which we may call methods that
-    # sequentially constructs our stripline trace. In this case, it is sipmly a sequence of straight
-    # sections.
+# PCBNew replaces PCBLayouter
+layouter = em.geo.PCBNew(th, unit=mm, material=pcbmat)
 
-    layouter.new(0,0, W0, (1,0)).store('p1').straight(L0).store('p2')
-    
-    # Next we generate a wave port surface to use for our simulation. A wave port can be automatically
-    # generated for a given stripoline section. To easily reference it we use the .ref() method to 
-    # recall the sections we created earlier.
-    p1 = layouter.modal_port(layouter.load('p1'), height=Hair)
-    p2 = layouter.modal_port(layouter.load('p2'), height=Hair)
-    
-    # Finally we compile the stirpline into a polygon. The compile_paths function will return
-    # GeoSurface objects that form the polygon. Additionally, we may turn on the Merge feature
-    # which will then return a single GeoSurface type object that we can use later.
-    polies = layouter.compile_paths(True)
+# --- Route trace ---------------------------------------------------------
+layouter.new(0, 0, W0, (1, 0))['p1'].straight(L0)['p2']
 
-    # We can manually define blocks for the dielectric or air or let the PCBLayouter do it for us.
-    # First we must determine the bounds of our PCB. This function by default will make a PCB
-    # just large enough to contain all the coordinates in it (in the XY plane). By adding extra
-    # margins we can make sure to add sufficient space next to the trace. Just make sure that there
-    # is no margin where the wave ports need to go.
-    layouter.determine_bounds(leftmargin=0, topmargin=50, rightmargin=0, bottommargin=50)
-    
-    # We can now generate the PCB and air box. The material assignment is automatic!
+# --- Wave ports ----------------------------------------------------------
+p1 = layouter.modal_port(layouter['p1'], height=Hair)
+p2 = layouter.modal_port(layouter['p2'], height=Hair)
 
-    pcb = layouter.gen_pcb(True, merge=True)
-    air = layouter.gen_air(Hair)
+# --- Compile traces ------------------------------------------------------
+polies = layouter.compile_paths(merge=True)
 
-    # We now pass all the geometries we have created to the .define_geometry() method.
-    m.define_geometry(pcb, polies, p1, p2, air)
+# --- PCB bounding box and volumes ----------------------------------------
+layouter.determine_bounds(leftmargin=0, topmargin=20, rightmargin=0, bottommargin=20)
 
-    # We set our desired resolution (fraction of the wavelength)
-    m.physics.set_resolution(0.1)
-    
-    # And we define our frequency range
-    m.physics.set_frequency_range(0.1e9, 2e9, 40)
+# generate_pcb / generate_air replace gen_pcb / gen_air
+pcb = layouter.generate_pcb(merge=True)
+air = layouter.generate_air(Hair)
 
-    # EMerge also has a convenient interface to improve surface meshing quality. 
-    # With the set_boundary_size(method) we can define a meshing resolution for the edges of boundaries.
-    # This is adviced for small stripline structures.
-    # The growth_rate setting allows us to change how fast the mesh size will recover to the original size.
-    m.mesher.set_boundary_size(polies, 1*mm, growth_rate=1.2)
-    m.mesher.set_boundary_size(p1, 2*mm)
-    m.mesher.set_boundary_size(p2, 2*mm)
-    
-    # Finally we generate our mesh and view it
-    m.generate_mesh()
+# --- Solver settings -----------------------------------------------------
+model.mw.set_resolution(0.1)
+model.mw.set_frequency_range(fstart, fstop, n_points)
 
-    m.view()
-    #m.view(use_gmsh=True)
+# --- Assemble geometry ---------------------------------------------------
+model.commit_geometry()
 
-    # We can now define the modal ports for the in and outputs and set the conductor to PEC.
-    port1 = em.bc.ModalPort(p1, 1, True)
-    port2 = em.bc.ModalPort(p2, 2, False)
-    pec = em.bc.PEC(polies)
+# --- Mesh refinement -----------------------------------------------------
+model.mesher.set_boundary_size(polies, 1 * mm, growth_rate=1.2)
+model.mesher.set_face_size(p1, 2 * mm)
+model.mesher.set_face_size(p2, 2 * mm)
 
-    m.physics.assign(port1, port2, pec)
+# --- Mesh and preview ----------------------------------------------------
+model.generate_mesh()
+model.view()
 
-    # Next we execute our Modal analysis. Make sure to set the TEM property to True so that
-    # EMerge knows to handle the port mode as a TEM boundary. This also includes the automatic
-    # determination of a voltage integration line used for computing the port impedance.
-    m.physics.modal_analysis(port1, 1, True, TEM=True)
-    m.physics.modal_analysis(port2, 1, True, TEM=True)
+# --- Boundary conditions -------------------------------------------------
+port1 = model.mw.bc.ModalPort(p1, 1, modetype='TEM')
+port2 = model.mw.bc.ModalPort(p2, 2, modetype='TEM')
 
-    # Finally we import the display class to view the resultant modes
-    from _emerge.plot.pyvista import PVDisplay
+# --- Run frequency-domain solver ----------------------------------------
+start_time = time.time()
+data = model.mw.run_sweep(parallel=True, n_workers=3)
+run_time = (time.time() - start_time) / 60  # minutes
 
-    d = PVDisplay(m.mesh)
-    d.add_object(pcb)
-    d.add_object(polies)
-    d.add_portmode(port1, 21)
-    d.add_portmode(port2, 21)
-    d.show()
+# --- Post-solve visualisation -------------------------------------------
+# add_portmode must come after run_sweep so modes are available
+field_mid = data.field.find(freq=1e9)
+model.display.add_object(pcb, opacity=0.2)
+model.display.add_object(polies)
+model.display.add_portmode(port1, k0=field_mid.k0)
+model.display.add_portmode(port2, k0=field_mid.k0)
+model.display.animate().add_field(
+    field_mid.cutplane(0.5 * mm, z=-0.5 * th * mm).scalar('Ez', 'complex'),
+    symmetrize=True,
+)
+model.display.show()
 
-    # Finally we execute the frequency domain sweep and compute the Scattering Parameters.
-    start_time = time.time()
-    sol = m.physics.frequency_domain(parallel=True, njobs=3)
-    stop_time = time.time()
-    run_time = (start_time - start_time)/60 # in minutes
-    
+# --- Export Touchstone ---------------------------------------------------
+grid = data.scalar.grid
 
-    # Save Touchstone data
-    comments = [
-    f"Substrate: RO4003C",
+comments = [
+    "Substrate: RO4003C",
     f"h = {th} mm",
-    f"Design parameters:",
+    "Design parameters:",
     f"W0 = {W0} mm",
-    f"L0 = {W0} mm",
+    f"L0 = {L0} mm",
     f"Air box height = {Hair} mm",
-    f"Run time = {run_time} min"]
-    
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    file_name = project_name + "_EMerge_" + timestamp
-    m.physics.freq_data.export_touchstone(file_name, None, 'MA', comments)
-    
+    f"Run time = {run_time:.2f} min",
+]
+
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+file_name = project_name + "_EMerge_" + timestamp
+grid.export_touchstone(file_name, custom_comments=comments)
