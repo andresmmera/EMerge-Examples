@@ -1,5 +1,4 @@
 import emerge as em
-from emerge.pyvista import PVDisplay
 import numpy as np
 import time
 from datetime import datetime
@@ -7,136 +6,139 @@ from datetime import datetime
 # Constants
 cm = 0.01
 mm = 0.001
-mil = 0.0254
+mil = 0.0254 * mm
 um = 0.000001
 PI = np.pi
 
-W = 5
-D = 5
-er = 3.55 # 
-th = 0.508 # mm. 20 mils
+er = 3.55
+th = 0.508      # mm. 20 mils
 tand = 0.0029
 
 # 50 ohm line parameters for RO4003C
-W0 = 1.08  # mm. Width for 50 ohm line
+W0 = 1.08       # mm. Width for 50 ohm line
 
 # Coupled line parameters for 15 dB coupler
-L_coupled = 22.75  # mm. Quarter wavelength at center frequency (2.5 GHz)
-W_coupled = 1  # mm. Line width for coupled section
-S_coupled = 0.3  # mm. Gap between coupled lines (tight coupling for 15 dB)
+L_coupled = 22.75   # mm. Quarter wavelength at center frequency (2.5 GHz)
+W_coupled = 1.0     # mm. Line width for coupled section
+S_coupled = 0.3     # mm. Gap between coupled lines (tight coupling for 15 dB)
 
 # Feed line lengths
-L_feed = 10.0  # mm. Input/output feed lines
-L_trans = L_feed/10 # mm. Length of the transition
+L_feed = 10.0       # mm. Input/output feed lines
+L_trans = L_feed / 10  # mm. Length of the transition
 
-Hair = 10 # mm. Air box height
-
-# We can define the material using the Material class. Just supply the dielectric properties and you are done!
-pcbmat = em.Material(er=er, tand=tand)
+Hair = 10  # mm. Air box height
 
 project_name = "Coupler_15dB"
 
-with em.Simulation3D(project_name, save_file=True) as m:
-    mat = em.Material(3.55, color="#217627", opacity=0.1)
-    pcb = em.geo.PCBLayouter(th, unit=mm)
-    
-    # Port 1 (Input) to Port 2 (Through) - main line
-    
-    # Upper trace. Left side of the coupler
-    pcb.new(0, 0, W0, (1,0)).straight(L_feed).straight(L_trans, W_coupled) # [0]
-        
-    
-    x_1st_coupled_line = L_feed + L_trans + W_coupled/2
-    y_start_coupled_lines = W_coupled/2
-    y_end_coupled_lines = y_start_coupled_lines-L_coupled
-    
-    x_2nd_coupled_line = x_1st_coupled_line + W_coupled + S_coupled
-    
-    # Parallel lines
-    pcb.new(x_1st_coupled_line, y_start_coupled_lines, W_coupled, (0,-1)).straight(L_coupled) # [11
-    pcb.new(x_2nd_coupled_line, y_start_coupled_lines, W_coupled, (0,-1)).straight(L_coupled) # [2]
-    
-    # Lower trace. Left side of the coupler
-    pcb.new(x_1st_coupled_line, y_end_coupled_lines+W_coupled/2, W_coupled, (-1,0)).straight(W_coupled/2).straight(L_trans, W_coupled).straight(L_feed, W0) # [3]
-    
-    
-    # Lower trace. Right side of the coupler
-    pcb.new(x_2nd_coupled_line, y_end_coupled_lines+W_coupled/2, W_coupled, (1,0)).straight(W_coupled/2).straight(L_trans, W_coupled).straight(L_feed, W0) # [4]
-    
-    # Upper trace. Right side of the coupler
-    pcb.new(x_2nd_coupled_line, 0, W_coupled, (1,0)).straight(W_coupled/2).straight(L_trans, W_coupled).straight(L_feed, W0) # [5]
-    
+# --- Create simulation object -------------------------------------------
+model = em.Simulation(project_name)
+model.check_version("2.3.0")
 
-    stripline = pcb.compile_paths(merge=True)
-    
-    # Set PCB bounds with some margin
-    pcb.determine_bounds(topmargin=15, bottommargin=15, leftmargin=0, rightmargin=0)
+# --- Material and PCB layouter ------------------------------------------
+mat = em.Material(er=er, tand=tand, color="#217627", opacity=0.1)
 
-    diel = pcb.gen_pcb()
-    air = pcb.gen_air(Hair)
+# PCBNew replaces PCBLayouter; unit is passed as a scaling factor (mm = 0.001)
+pcb = em.geo.PCBNew(th, unit=mm, material=mat)
 
-    diel.material = mat
+# --- Route coupled-line traces ------------------------------------------
+# Port labelling uses dict-key syntax ['name'] instead of .paths[n].start/.end
 
-    # Define ports
-    p1 = pcb.modal_port(pcb.paths[0].start, width_multiplier=3, height=2*th)  # Input
-    p2 = pcb.modal_port(pcb.paths[3].end, width_multiplier=3, height=2*th)    # Through
-    p3 = pcb.modal_port(pcb.paths[5].end, width_multiplier=3, height=2*th)    # Coupled
-    p4 = pcb.modal_port(pcb.paths[4].end, width_multiplier=3, height=2*th)    # Isolated
+# Upper trace: left feed → taper → 1st coupled stub entry
+pcb.new(0, 0, W0, (1, 0))['p1'] \
+    .straight(L_feed) \
+    .straight(L_trans, W_coupled)
 
-    m.physics.resolution = 1  # Mesh resolution
+x_1st = L_feed + L_trans + W_coupled / 2
+x_2nd = x_1st + W_coupled + S_coupled
+y_top = W_coupled / 2
+y_bot = y_top - L_coupled
 
-    # Set frequency range around 2.5 GHz center frequency
-    m.physics.set_frequency_range(0.1e9, 5.0e9, 40)
+# Parallel coupled lines (vertical)
+pcb.new(x_1st, y_top, W_coupled, (0, -1)).straight(L_coupled)
+pcb.new(x_2nd, y_top, W_coupled, (0, -1)).straight(L_coupled)
 
-    m.define_geometry(stripline, diel, p1, p2, p3, p4, air)
+# Lower trace: left exit → taper → output feed  (Port 2 – Through)
+pcb.new(x_1st, y_bot + W_coupled / 2, W_coupled, (-1, 0)) \
+    .straight(W_coupled / 2) \
+    .straight(L_trans, W_coupled) \
+    .straight(L_feed, W0)['p2']
 
-    m.mesher.set_boundary_size(stripline, 0.75*mm)
+# Lower trace: right exit → taper → output feed  (Port 4 – Isolated)
+pcb.new(x_2nd, y_bot + W_coupled / 2, W_coupled, (1, 0)) \
+    .straight(W_coupled / 2) \
+    .straight(L_trans, W_coupled) \
+    .straight(L_feed, W0)['p4']
 
-    m.generate_mesh()
+# Upper trace: right exit → taper → output feed  (Port 3 – Coupled)
+pcb.new(x_2nd, 0, W_coupled, (1, 0)) \
+    .straight(W_coupled / 2) \
+    .straight(L_trans, W_coupled) \
+    .straight(L_feed, W0)['p3']
 
-    #m.view(use_gmsh=True)
-    m.view()
-    
-    # Define boundary conditions
-    port1 = em.bc.ModalPort(p1, 1, True)   # Input
-    port2 = em.bc.ModalPort(p2, 2, False)  # Through
-    port3 = em.bc.ModalPort(p3, 3, False)  # Coupled
-    port4 = em.bc.ModalPort(p4, 4, False)  # Isolated
-    pec = em.bc.PEC(stripline)
+# --- Compile traces ------------------------------------------------------
+stripline = pcb.compile_paths(merge=True)
 
-    m.physics.assign(port1, port2, port3, port4, pec)
-    
-    # Modal analysis for each port
-    m.physics.modal_analysis(port1, 1, direct=True, TEM=True, freq=2.5e9)
-    m.physics.modal_analysis(port2, 1, direct=True, TEM=True, freq=2.5e9)
-    m.physics.modal_analysis(port3, 1, direct=True, TEM=True, freq=2.5e9)
-    m.physics.modal_analysis(port4, 1, direct=True, TEM=True, freq=2.5e9)
+# --- PCB bounding box and substrate/air volumes -------------------------
+pcb.determine_bounds(topmargin=15, bottommargin=15, leftmargin=0, rightmargin=0)
 
-    # Visualization
-    d = PVDisplay(m.mesh)
-    d.add_object(diel, color='green', opacity=0.5)
-    d.add_object(stripline, color='red')
-    d.add_object(p1, color='blue', opacity=0.3)
-    d.add_object(p2, color='blue', opacity=0.3)
-    d.add_object(p3, color='cyan', opacity=0.3)
-    d.add_object(p4, color='magenta', opacity=0.3)
-    d.add_portmode(port1, 21)
-    d.add_portmode(port2, 21)
-    d.add_portmode(port3, 21)
-    d.add_portmode(port4, 21)
-    d.show()
+diel = pcb.generate_pcb(merge=True)    # generate_pcb replaces gen_pcb
+air  = pcb.generate_air(Hair)          # generate_air replaces gen_air
 
-    # Run simulation
-    start_time = time.time()
-    data = m.physics.frequency_domain(parallel=True, njobs=2, frequency_groups=4 )
-    stop_time = time.time()
-    run_time = (stop_time - start_time)/60 # in minutes
-    
-    # Save Touchstone data
-    comments = [
-    f"Substrate: RO4003C",
+# --- Define wave ports ---------------------------------------------------
+# modal_port now references named path endpoints stored via ['label'] syntax
+p1 = pcb.modal_port(pcb['p1'], width_multiplier=3, height=2 * th)   # Input
+p2 = pcb.modal_port(pcb['p2'], width_multiplier=3, height=2 * th)   # Through
+p3 = pcb.modal_port(pcb['p3'], width_multiplier=3, height=2 * th)   # Coupled
+p4 = pcb.modal_port(pcb['p4'], width_multiplier=3, height=2 * th)   # Isolated
+
+# --- Solver settings -----------------------------------------------------
+model.mw.set_resolution(0.25)                       # replaces m.physics.resolution
+model.mw.set_frequency_range(0.1e9, 5.0e9, 40)      # replaces m.physics.set_frequency_range
+
+# --- Assemble geometry ---------------------------------------------------
+model.commit_geometry()                              # replaces m.define_geometry(...)
+
+# --- Mesh refinement and generation -------------------------------------
+model.mesher.set_boundary_size(stripline, 0.75 * mm)
+model.generate_mesh()
+model.view()
+
+# --- Boundary conditions -------------------------------------------------
+# model.mw.bc.ModalPort replaces em.bc.ModalPort
+# modetype='TEM' replaces the separate modal_analysis() calls
+port1 = model.mw.bc.ModalPort(p1, 1, modetype='TEM')   # Input
+port2 = model.mw.bc.ModalPort(p2, 2, modetype='TEM')   # Through
+port3 = model.mw.bc.ModalPort(p3, 3, modetype='TEM')   # Coupled
+port4 = model.mw.bc.ModalPort(p4, 4, modetype='TEM')   # Isolated
+
+# --- Run frequency-domain solver ----------------------------------------
+start_time = time.time()
+data = model.mw.run_sweep(parallel=True, n_workers=4, frequency_groups=8)
+run_time = (time.time() - start_time) / 60          # minutes
+
+# --- Post-solve visualisation -------------------------------------------
+# add_portmode requires solved modes, so it must come after run_sweep.
+# We use the k0 from the mid-band field solution.
+field_mid = data.field.find(freq=2.5e9)
+model.display.add_object(diel, opacity=0.2)
+model.display.add_object(stripline)
+model.display.add_portmode(port1, k0=field_mid.k0)
+model.display.add_portmode(port2, k0=field_mid.k0)
+model.display.add_portmode(port3, k0=field_mid.k0)
+model.display.add_portmode(port4, k0=field_mid.k0)
+model.display.animate().add_field(
+    field_mid.cutplane(0.5 * mm, z=-0.5 * th * mm).scalar('Ez', 'complex'),
+    symmetrize=True,
+)
+model.display.show()
+
+# --- Post-process and export Touchstone ----------------------------------
+grid = data.scalar.grid
+
+comments = [
+    "Substrate: RO4003C",
     f"h = {th} mm",
-    f"Design parameters:",
+    "Design parameters:",
     f"W0 = {W0} mm",
     f"L_coupled = {L_coupled} mm",
     f"W_coupled = {W_coupled} mm",
@@ -144,10 +146,9 @@ with em.Simulation3D(project_name, save_file=True) as m:
     f"L_feed = {L_feed} mm",
     f"L_trans = {L_trans} mm",
     f"Air box height = {Hair} mm",
-    f"Run time = {run_time} min"]
-    
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    file_name = project_name + "_EMerge_" + timestamp
-    m.physics.freq_data.export_touchstone(file_name, None, 'MA', comments)
-    
-    
+    f"Run time = {run_time:.2f} min",
+]
+
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+file_name = project_name + "_EMerge_" + timestamp
+grid.export_touchstone(file_name, custom_comments=comments)

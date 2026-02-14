@@ -1,6 +1,6 @@
-<Qucs Schematic 25.1.2>
+<Qucs Schematic 25.2.0>
 <Properties>
-  <View=-204,-54,1696,1015,0.827877,0,0>
+  <View=-145,20,1726,1040,0.838235,0,0>
   <Grid=10,10,1>
   <DataSet=EMerge_Simulation.dat>
   <DataDisplay=EMerge_Simulation.dpl>
@@ -20,7 +20,7 @@
   <Rectangle -40 -40 270 80 #000000 1 1 #c0c0c0 1 0>
 </Symbol>
 <Components>
-  <.SP SP1 1 590 830 0 60 0 0 "lin" 1 "100 MHz" 1 "5000 MHz" 1 "200" 1 "no" 0 "1" 0 "2" 0 "no" 0 "no" 0>
+  <.SP SP1 1 590 830 0 56 0 0 "lin" 1 "100 MHz" 1 "5000 MHz" 1 "200" 1 "no" 0 "1" 0 "2" 0 "no" 0 "no" 0>
   <Eqn Eqn1 1 770 840 -31 16 0 0 "RL=dB(S[1,1])" 1 "through=dB(S[2,1])" 1 "coupled=dB(S[3,1])" 1 "isolated=dB(S[4,1])" 1 "yes" 0>
   <Pac P1 1 130 240 18 -26 0 1 "1" 1 "50 Ohm" 1 "0 dBm" 0 "1 MHz" 0 "26.85" 0 "true" 0>
   <GND * 1 130 280 0 0 0 0>

@@ -1,6 +1,6 @@
-<Qucs Schematic 25.1.2>
+<Qucs Schematic 25.2.0>
 <Properties>
-  <View=4,93,679,474,2.32895,0,0>
+  <View=-13,93,702,484,2.19231,0,0>
   <Grid=10,10,1>
   <DataSet=Coupler_EMerge.dat>
   <DataDisplay=Coupler_EMerge.dpl>
